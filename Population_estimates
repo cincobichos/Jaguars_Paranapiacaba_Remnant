@@ -1,0 +1,49 @@
+#Captura-recaptura de onças pintadas no Contínuo de Paranapiacaba
+#Com resultados Bloco 1
+####Utilizando scripts do SECR-Tutorial
+
+#pacotes necessários
+library(secr)
+library(spatstat)
+library(sp)
+library (maptools) # utilizacao de shapefiles
+library(raster) # uso de raster
+library(rgdal)
+library (secrdesign)
+
+
+sink ("bloco1_9occ10d.txt")
+
+#leitura das planilhas
+Bloco_1<-read.csv("caphist.csv",header=T, sep=",",dec=".")
+
+estacoes<-read.traps("detec.csv",sep=",", detector="count", binary.usage=FALSE)
+
+paranapiacaba <-readOGR(dsn="/SHP",layer="continuo_3_dissolve")
+paranapiacaba.utm <- spTransform(paranapiacaba, CRS("+proj=utm +zone=22 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
+
+#criando a capthis
+Bloco_1_data<-make.capthist(Bloco_1, estacoes, fmt="trapID", noccasions=9)
+summary (Bloco_1_data)
+#buff <- suggest.buffer(Bloco_1_data)
+buff <- 62000
+#criando a area de mascara
+
+habitat <- make.mask (traps (Bloco_1_data),  type = "trapbuffer",
+                      buffer = buff, poly = paranapiacaba.utm)
+plot (habitat)
+#modelo nulo, detc=HN
+fit.0<- secr.fit(Bloco_1_data, mask = habitat,
+                 details = list(fastproximity = FALSE), trace = FALSE)
+#modelo de heterogeneidadefit.
+fit.h2 <- secr.fit(Bloco_1_data, model = list(g0 ~ h2, sigma ~ h2),mask = habitat,details = list(fastproximity = FALSE), trace = FALSE)
+#modelo de animais transientes
+fit.g0.B <- secr.fit(Bloco_1_data, model = list(g0 ~ B), mask = habitat,details = list(fastproximity = FALSE),  trace = FALSE)
+
+
+#concorrencia
+
+AIC(fit.0, fit.h2, fit.g0.B)
+buff<- suggest.buffer(fit.0)
+buff
+sink()
