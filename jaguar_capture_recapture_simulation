@@ -1,0 +1,83 @@
+#SIMULACAO CAPTURA-RECAPTURA DE ONCAS PINTADAS NO CONTINUO DE PARANAPIACABA
+#Adaptada de Meredith
+# TRES GRADES - BLOCO, CLUSTERS e GRADE PROPOSTA
+
+#pacotes necessarios
+library(secr)
+library (maptools) # utilizacao de shapefiles
+library(rgdal)
+library(spatstat)
+library(raster) # usado para sugerir buffer
+
+paranapiacaba <-readOGR(dsn="/SHP",layer="continuo_3_dissolve")
+paranapiacaba.utm <- spTransform(paranapiacaba, CRS("+proj=utm +zone=22 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
+
+plot(paranapiacaba.utm, main="")
+
+
+# Populacao pequena,  13, 20 e 35 animais na area de mascara
+
+#numero de individuos na area
+#n <- 13
+#n <- 20
+n <-35
+
+# Determinar numero de individuos na area, o tamanho do habitat (shape), g0 e sigma
+
+area <- 749013 # layer - "continuo_3_dissolve.shp" 
+D<-n/area
+D
+g0<-0.02
+sigma<-5000
+
+#territory <- sigma 
+territory <- 2 * sigma # aumentando o tamanho do territorio para ver se espalhamos mais os bichos
+
+
+setwd ("~/OPA/Simulacao")
+
+sink ("previsa.csv") # para compilar as simulacoes - nao vou utilizar na demonstracao
+
+
+# INICIO DO TRECHO A SER REPETIDO 120 vezes
+
+# Centros de atividade
+AClocs <- rSSI(r=territory, n=n, win=paranapiacaba.utm)
+popn <- data.frame(x=AClocs$x, y=AClocs$y)
+class(popn) <- c("popn", "data.frame")
+
+# Tempo de amostragem (ocasioes)
+#nOcc <- 60
+nOcc <- 90
+#nOcc <- 180
+#nOcc <- 360
+
+# Desenho amostral 
+
+
+#traps<-read.traps("grid_bloco_62_detectors.txt",sep=",", detector="multi")
+#traps<-read.traps("grid_cluster_61_detectors.txt",sep=",", detector="multi")
+#traps<-read.traps("grid_proposta_60_detectors.txt",sep=",", detector="multi")
+#traps<-read.traps("bloco_100.csv",sep=",", detector="multi")
+traps<-read.traps("tripa_100_fic.csv",sep=",", detector="multi")
+#traps<-read.traps("cluster_100_completo.csv",sep=",", detector="multi")
+traps<-read.traps("tripa_completa.csv",sep=",", detector="count")
+
+plot(traps)
+simCH <- sim.capthist(traps, 
+                      popn = popn,
+                      detectfn = 0, 
+                      detectpar = list(g0 = g0, sigma = sigma),
+                      noccasions = nOcc)
+plot(simCH, add=TRUE, tracks=TRUE, rad=15000)
+points(AClocs, pch=19, col="red")
+buff <- suggest.buffer(simCH)
+buff
+habitat <- make.mask(traps(simCH),  type = "trapbuffer", buffer = buff,
+                     poly = paranapiacaba.utm)
+fit.0 <- secr.fit(simCH, mask=habitat, trace = FALSE)
+predict(fit.0)
+
+#FIM DO TRECHO A SER REPETIDO 120 vezes
+sink ()
+
